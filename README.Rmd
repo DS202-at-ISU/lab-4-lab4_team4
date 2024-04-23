@@ -26,6 +26,6 @@ hof %>%
   geom_line() +
   geom_point(aes(colour = "inducted"), 
     data = hof %>% filter(inducted=="Y")) +
-  xlim(c(1936, 2022)) +
+  xlim(c(1936, 2023)) +
   ylab("Percent of votes")
 ```
