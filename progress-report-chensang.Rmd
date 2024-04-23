@@ -1,0 +1,135 @@
+---
+title: "progress-report-chensang.Rmd"
+author: "Chen Sang"
+date: "2024-04-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Import the libary:
+```{r}
+library(rvest)
+library(tidyverse)
+library(Lahman)
+library(stringr)
+```
+
+
+
+Scrap & clean the data:
+```{r}
+HallOfFame
+head(HallOfFame,3)
+```
+
+Import 2023 data:
+```{r}
+url <- "https://www.baseball-reference.com/awards/hof_2023.shtml"
+html <- read_html(url)
+tables <- html_table(html)
+data <- tables[[1]]
+data %>% head()
+
+write.csv(tables[[1]], "temp.csv", row.names=FALSE)
+backin <- readr::read_csv("temp.csv", skip = 1, show_col_types =FALSE)
+head(backin, 3)
+```
+
+
+```{r}
+backin <- backin %>% 
+  select(Name,Votes)
+head(backin)
+
+backin <- backin %>% mutate(
+  yearID = 2023,
+  votedBy = "BBWAA",
+  ballots = 389,
+  needed = 292,
+  inducted = ifelse(Votes>=292, "Y", "N"),
+  category = NA, # don't know yet
+  needed_note = NA # not sure what would go here
+) %>% rename(
+  votes = Votes
+) 
+head(backin)
+
+```
+Import people data
+```{r}
+data("People", package = "Lahman")
+head(People)
+
+People %>% filter(nameLast %in% c("Dickey", "Hardy")) %>%
+  select(playerID, nameFirst, nameLast)
+
+head(People)
+
+People <- People %>% mutate(
+  `First Lastname`=paste(`nameFirst`, `nameLast`)
+)
+
+# Perform anti-join
+result <- backin %>%
+  anti_join(
+    People %>% select(`First Lastname`, playerID),
+    by = c("Name" = "First Lastname")
+  )
+
+# View the resulting data frame
+print(result)
+
+People %>% filter(nameLast %in% c("Dickey", "Hardy")) %>%
+  select(playerID, "First Lastname")
+
+head(People)
+
+People <- People %>% mutate(
+  `First Lastname` = paste(
+    str_replace(nameFirst,"\\. ", "."),  # this uses a regular expression
+    nameLast)
+)
+People %>% filter(nameLast %in% c("Dickey", "Hardy")) %>%
+  select(playerID, `First Lastname`)
+
+
+backin$Name <- gsub("X-", "", backin$Name)
+backin$Name[2] <- "Todd Helton"
+backin$Name[6] <- "Carlos Beltran"
+backin$Name[15] <- "Francisco Rodriguez"
+
+
+head(backin)
+head(People)
+
+
+```
+
+Combine data:
+```{r}
+# Assuming `backin` and `People` are your data frames
+final <- left_join(
+  backin,
+  People %>% select(`First Lastname`, playerID),  # Select relevant columns from People
+  by = c("Name" = "First Lastname")     # Specify join columns
+)
+
+final
+
+final <- final[,c("playerID", "yearID", "votedBy", "ballots", "needed", "votes", "inducted", "category", "needed_note")]
+
+head(HallOfFame, 3)
+head(final)
+
+```
+
+Combine old HOF with 2023 data(final)
+```{r}
+hof <- rbind(hof,final )
+```
+
+
+
